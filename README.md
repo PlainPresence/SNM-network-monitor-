@@ -34,7 +34,7 @@ Outputs go to `release/`.
 
 ## GitHub Releases
 
-This repo includes a GitHub Actions workflow that builds installers for Windows + Linux and attaches them to a GitHub Release when you push a tag like `v0.1.0`.
+This repo includes a GitHub Actions workflow that builds installers for Windows + Linux + macOS and attaches them to a GitHub Release when you push a tag like `v0.1.0`.
 
 1) Create a GitHub repo and push your code (first time):
 

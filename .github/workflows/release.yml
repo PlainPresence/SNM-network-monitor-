@@ -10,8 +10,14 @@ permissions:
   contents: write
 
 jobs:
-  build-windows:
-    runs-on: windows-latest
+  build:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+
     steps:
       - uses: actions/checkout@v4
 
@@ -20,43 +26,8 @@ jobs:
           node-version: 22
           cache: npm
 
-      - name: Install deps
-        run: npm ci
-
-      - name: Build installers
-        run: npm run dist -- --publish never
-
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: windows-release
-          path: |
-            release/*.exe
-            release/*.blockmap
-            release/latest.yml
-          if-no-files-found: warn
-
-      - name: Publish GitHub Release assets
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            release/*.exe
-            release/*.blockmap
-            release/latest.yml
-          fail_on_unmatched_files: false
-
-  build-linux:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-
-      - name: Install system dependencies
+      - name: Install system dependencies (Linux)
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y libarchive-tools
@@ -65,22 +36,45 @@ jobs:
         run: npm ci
 
       - name: Build installers
+        env:
+          # Prevent electron-builder from trying to code-sign in CI unless you provide signing secrets.
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
         run: npm run dist -- --publish never
 
-      - name: Upload build artifacts
+      - name: Upload release artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: linux-release
+          name: release-${{ runner.os }}
           path: |
+            release/*.exe
+            release/*.blockmap
+            release/latest.yml
             release/*.AppImage
             release/*.deb
+            release/*.dmg
+            release/*.zip
           if-no-files-found: warn
 
-      - name: Publish GitHub Release assets
-        if: startsWith(github.ref, 'refs/tags/')
+  publish:
+    name: Publish GitHub Release
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: [build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Publish Release assets
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            release/*.AppImage
-            release/*.deb
+            artifacts/**/release/*.exe
+            artifacts/**/release/*.blockmap
+            artifacts/**/release/latest.yml
+            artifacts/**/release/*.AppImage
+            artifacts/**/release/*.deb
+            artifacts/**/release/*.dmg
+            artifacts/**/release/*.zip
           fail_on_unmatched_files: false
